@@ -7,6 +7,7 @@ import { DownloadState, VideoInfo } from "@/pages/Index";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
+import ShareSheet from "@/components/ShareSheet";
 
 // Helper to pick the best media URL from the API response
 function extractDownloadInfo(data: any): { title: string; thumbnail: string; duration: string; platform: string; medias: any[] } | null {
@@ -34,6 +35,8 @@ const HomeTab = () => {
   const [progress, setProgress] = useState(0);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [medias, setMedias] = useState<any[]>([]);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [showShare, setShowShare] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handlePaste = async () => {
@@ -95,6 +98,9 @@ const HomeTab = () => {
       return;
     }
 
+    // Save URL for share sheet
+    setShareUrl(target.url);
+
     // Trigger download via anchor tag
     const a = document.createElement("a");
     a.href = target.url;
@@ -112,6 +118,7 @@ const HomeTab = () => {
         if (p >= 100) {
           clearInterval(interval);
           setDownloadState("done");
+          setShowShare(true);
           return 100;
         }
         return p + Math.random() * 8 + 2;
@@ -125,6 +132,8 @@ const HomeTab = () => {
     setProgress(0);
     setVideoInfo(null);
     setMedias([]);
+    setShareUrl("");
+    setShowShare(false);
   };
 
   const isFetching = downloadState === "fetching";
@@ -227,6 +236,13 @@ const HomeTab = () => {
       )}
 
       <Toaster />
+
+      <ShareSheet
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        title={videoInfo?.title || "Video"}
+        url={shareUrl}
+      />
     </div>
   );
 };
