@@ -1,9 +1,24 @@
 import { useState, useRef } from "react";
-import { Clipboard, Download, Link2, X, CheckCircle2 } from "lucide-react";
+import { Clipboard, Download, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VideoPreview from "@/components/VideoPreview";
 import DownloadProgress from "@/components/DownloadProgress";
 import { DownloadState, VideoInfo } from "@/pages/Index";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
+
+// Helper to pick the best media URL from the API response
+function extractDownloadInfo(data: any): { title: string; thumbnail: string; duration: string; platform: string; medias: any[] } | null {
+  if (!data) return null;
+  return {
+    title: data.title || data.fulltitle || "Video",
+    thumbnail: data.thumbnail || data.thumbnails?.[0]?.url || "",
+    duration: data.duration_string || (data.duration ? `${Math.floor(data.duration / 60)}:${String(data.duration % 60).padStart(2, '0')}` : ""),
+    platform: data.extractor_key || data.extractor || "Video",
+    medias: data.medias || [],
+  };
+}
 
 const PLATFORMS = [
   { id: "youtube", label: "YouTube", color: "#FF0000", abbr: "YT" },
@@ -13,20 +28,12 @@ const PLATFORMS = [
   { id: "tiktok", label: "TikTok", color: "#010101", abbr: "TT" },
 ];
 
-const MOCK_VIDEO: VideoInfo = {
-  title: "Amazing Sunset Timelapse - 4K Ultra HD",
-  thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=640&q=80",
-  duration: "3:42",
-  platform: "YouTube",
-  resolution: "1080p",
-  fileSize: "142 MB",
-};
-
 const HomeTab = () => {
   const [url, setUrl] = useState("");
   const [downloadState, setDownloadState] = useState<DownloadState>("idle");
   const [progress, setProgress] = useState(0);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [medias, setMedias] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handlePaste = async () => {
@@ -39,18 +46,65 @@ const HomeTab = () => {
     }
   };
 
-  const handleFetch = () => {
+  const handleFetch = async () => {
     if (!url.trim()) return;
     setDownloadState("fetching");
     setProgress(0);
     setVideoInfo(null);
-    setTimeout(() => {
-      setVideoInfo(MOCK_VIDEO);
+    setMedias([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("video-download", {
+        body: { url: url.trim() },
+      });
+
+      if (error) throw new Error(error.message);
+
+      const info = extractDownloadInfo(data);
+      if (!info) throw new Error("Could not parse video info");
+
+      // Pick best quality video media
+      const videoMedias = info.medias.filter((m: any) => m.type === "video" || (!m.type && m.url));
+      const audioMedias = info.medias.filter((m: any) => m.type === "audio");
+
+      setMedias([...videoMedias, ...audioMedias]);
+      setVideoInfo({
+        title: info.title,
+        thumbnail: info.thumbnail,
+        duration: info.duration,
+        platform: info.platform,
+        resolution: videoMedias[0]?.quality || videoMedias[0]?.resolution || "Best",
+        fileSize: videoMedias[0]?.size ? `${Math.round(videoMedias[0].size / 1024 / 1024)} MB` : "—",
+      });
       setDownloadState("idle");
-    }, 1800);
+    } catch (err: any) {
+      setDownloadState("error");
+      toast({ title: "Failed to fetch video", description: err.message, variant: "destructive" });
+      setDownloadState("idle");
+    }
   };
 
-  const handleDownload = () => {
+  const handleDownload = (selectedRes?: string) => {
+    // Find the media matching selected resolution or pick best
+    const target = medias.find((m) =>
+      m.quality === selectedRes || m.resolution === selectedRes
+    ) || medias[0];
+
+    if (!target?.url) {
+      toast({ title: "No download URL found", variant: "destructive" });
+      return;
+    }
+
+    // Trigger download via anchor tag
+    const a = document.createElement("a");
+    a.href = target.url;
+    a.download = videoInfo?.title || "video";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Simulate progress UI
     setDownloadState("downloading");
     setProgress(0);
     const interval = setInterval(() => {
@@ -70,6 +124,7 @@ const HomeTab = () => {
     setDownloadState("idle");
     setProgress(0);
     setVideoInfo(null);
+    setMedias([]);
   };
 
   const isFetching = downloadState === "fetching";
@@ -162,6 +217,7 @@ const HomeTab = () => {
           downloadState={downloadState}
           onDownload={handleDownload}
           onReset={handleReset}
+          medias={medias}
         />
       )}
 
@@ -169,6 +225,8 @@ const HomeTab = () => {
       {(downloadState === "downloading" || downloadState === "done") && (
         <DownloadProgress progress={Math.min(progress, 100)} state={downloadState} />
       )}
+
+      <Toaster />
     </div>
   );
 };

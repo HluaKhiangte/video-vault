@@ -6,14 +6,20 @@ import { useState } from "react";
 interface Props {
   info: VideoInfo;
   downloadState: DownloadState;
-  onDownload: () => void;
+  onDownload: (selectedRes?: string) => void;
   onReset: () => void;
+  medias?: any[];
 }
 
-const resolutions = ["4K", "1080p", "720p", "480p", "360p", "Audio only"];
+const DEFAULT_RESOLUTIONS = ["4K", "1080p", "720p", "480p", "360p", "Audio only"];
 
-const VideoPreview = ({ info, downloadState, onDownload, onReset }: Props) => {
-  const [selectedRes, setSelectedRes] = useState("1080p");
+const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }: Props) => {
+  // Build resolution options: from real API medias or fallback defaults
+  const resolutionOptions = medias.length > 0
+    ? medias.map((m: any) => m.quality || m.resolution || (m.type === "audio" ? "Audio only" : "Best")).filter(Boolean)
+    : DEFAULT_RESOLUTIONS;
+
+  const [selectedRes, setSelectedRes] = useState(resolutionOptions[0] || "Best");
 
   const isDone = downloadState === "done";
   const isDownloading = downloadState === "downloading";
@@ -57,7 +63,7 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset }: Props) => {
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-2 font-medium">Quality</p>
           <div className="flex flex-wrap gap-1.5">
-            {resolutions.map((res) => (
+            {resolutionOptions.map((res) => (
               <button
                 key={res}
                 onClick={() => setSelectedRes(res)}
@@ -86,7 +92,7 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset }: Props) => {
             </Button>
           ) : (
             <Button
-              onClick={onDownload}
+              onClick={() => onDownload(selectedRes)}
               disabled={isDownloading}
               className="flex-1 bg-gradient-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 animate-pulse-glow"
             >
