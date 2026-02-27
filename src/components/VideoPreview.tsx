@@ -1,7 +1,7 @@
-import { Play, Download, RotateCcw, Clock, Monitor, HardDrive } from "lucide-react";
+import { Play, Download, RotateCcw, Clock, Monitor, HardDrive, Music, Film, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VideoInfo, DownloadState } from "@/pages/Index";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface Props {
   info: VideoInfo;
@@ -13,10 +13,34 @@ interface Props {
 
 const DEFAULT_RESOLUTIONS = ["4K", "1080p", "720p", "480p", "360p", "Audio only"];
 
+type Format = "MP4" | "MP3" | "WEBM";
+
+const FORMAT_OPTIONS: { id: Format; label: string; icon: React.ElementType; ext: string }[] = [
+  { id: "MP4",  label: "MP4",  icon: Film,  ext: "mp4"  },
+  { id: "MP3",  label: "MP3",  icon: Music, ext: "mp3"  },
+  { id: "WEBM", label: "WEBM", icon: Video, ext: "webm" },
+];
+
 const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }: Props) => {
-  // Build resolution options: from real API medias or fallback defaults
-  const resolutionOptions = medias.length > 0
-    ? medias.map((m: any) => m.quality || m.resolution || (m.type === "audio" ? "Audio only" : "Best")).filter(Boolean)
+  const [selectedFormat, setSelectedFormat] = useState<Format>("MP4");
+
+  // Filter medias by selected format
+  const filteredMedias = useMemo(() => {
+    if (medias.length === 0) return [];
+    return medias.filter((m: any) => {
+      const ext = (m.ext || m.extension || m.format || m.quality || "").toLowerCase();
+      const mimeType = (m.mimeType || m.mime_type || m.type || "").toLowerCase();
+      if (selectedFormat === "MP3") return ext.includes("mp3") || mimeType.includes("audio") || m.type === "audio";
+      if (selectedFormat === "WEBM") return ext.includes("webm") || mimeType.includes("webm");
+      // MP4: default — video tracks or unrecognised
+      return !ext.includes("mp3") && !ext.includes("webm") && !mimeType.includes("audio");
+    });
+  }, [medias, selectedFormat]);
+
+  const displayMedias = filteredMedias.length > 0 ? filteredMedias : medias;
+
+  const resolutionOptions = displayMedias.length > 0
+    ? displayMedias.map((m: any) => m.quality || m.resolution || (m.type === "audio" ? "Audio" : "Best")).filter(Boolean)
     : DEFAULT_RESOLUTIONS;
 
   const [selectedRes, setSelectedRes] = useState(resolutionOptions[0] || "Best");
@@ -59,6 +83,27 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }:
           <span className="flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5" />{info.fileSize}</span>
         </div>
 
+        {/* Format toggle */}
+        <div className="mb-4">
+          <p className="text-xs text-muted-foreground mb-2 font-medium">Format</p>
+          <div className="flex gap-2 p-1 rounded-xl bg-muted border border-border">
+            {FORMAT_OPTIONS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => { setSelectedFormat(id); setSelectedRes(resolutionOptions[0] || "Best"); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  selectedFormat === id
+                    ? "bg-primary text-primary-foreground shadow-glow"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Resolution selector */}
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-2 font-medium">Quality</p>
@@ -97,7 +142,7 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }:
               className="flex-1 bg-gradient-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 animate-pulse-glow"
             >
               <Download className="w-4 h-4 mr-2" />
-              {isDownloading ? "Downloading..." : `Download ${selectedRes}`}
+              {isDownloading ? "Downloading..." : `Download ${selectedFormat} · ${selectedRes}`}
             </Button>
           )}
         </div>
@@ -105,5 +150,4 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }:
     </div>
   );
 };
-
 export default VideoPreview;
