@@ -150,8 +150,8 @@ const StatusSaverTab = () => {
                     </div>
                   )}
 
-                  {/* Download strip */}
-                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-2 py-2 bg-gradient-to-t from-background/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Download strip - always visible on mobile */}
+                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-2 py-2 bg-gradient-to-t from-background/90 to-transparent">
                     <button
                       onClick={() => handleDownload(item)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
