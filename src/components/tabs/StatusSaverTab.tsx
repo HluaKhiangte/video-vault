@@ -1,58 +1,65 @@
-import { useState } from "react";
-import { Smartphone, FolderOpen, Image, Video, MessageCircle, Info, ChevronRight } from "lucide-react";
+import { useState, useRef } from "react";
+import { Download, Image, Video, MessageCircle, FolderOpen, CheckCircle } from "lucide-react";
 
-type Device = "android" | "ios";
+type MediaItem = {
+  name: string;
+  url: string;
+  type: "image" | "video";
+  file: File;
+};
 
-const ANDROID_STEPS = [
-  {
-    icon: MessageCircle,
-    title: "View the Status",
-    desc: "Open WhatsApp and watch the status you want to save (must be viewed first).",
-  },
-  {
-    icon: FolderOpen,
-    title: "Open File Manager",
-    desc: 'Go to your phone\'s File Manager app and enable "Show Hidden Files".',
-  },
-  {
-    icon: FolderOpen,
-    title: "Navigate to WhatsApp folder",
-    desc: "Internal Storage → Android → media → com.whatsapp → WhatsApp → Media → .Statuses",
-  },
-  {
-    icon: Image,
-    title: "Copy the file",
-    desc: "Long-press the image or video, then copy or move it to your Gallery / Downloads folder.",
-  },
-];
-
-const IOS_STEPS = [
-  {
-    icon: MessageCircle,
-    title: "View the Status",
-    desc: "Open WhatsApp and watch the status you want to save.",
-  },
-  {
-    icon: Smartphone,
-    title: "Screen Record (Videos)",
-    desc: 'Swipe to Control Center, tap the Record button, then play the status. Stop recording when done.',
-  },
-  {
-    icon: Image,
-    title: "Screenshot (Images)",
-    desc: "Take a screenshot while the image status is displayed on screen.",
-  },
-  {
-    icon: Info,
-    title: "Note",
-    desc: "iOS does not allow access to WhatsApp's local storage. Screen recording and screenshots are the only native options.",
-  },
-];
+type SubTab = "images" | "videos";
 
 const StatusSaverTab = () => {
-  const [device, setDevice] = useState<Device>("android");
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [subTab, setSubTab] = useState<SubTab>("images");
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  const steps = device === "android" ? ANDROID_STEPS : IOS_STEPS;
+  const handleOpenFolder = async () => {
+    if (!("showDirectoryPicker" in window)) {
+      alert("Your browser does not support folder access. Please use Chrome or Edge on Android.");
+      return;
+    }
+    setLoading(true);
+    try {
+      // @ts-ignore
+      const dirHandle = await window.showDirectoryPicker({ mode: "read" });
+      const loaded: MediaItem[] = [];
+
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind !== "file") continue;
+        const lower = name.toLowerCase();
+        const isImage = lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp");
+        const isVideo = lower.endsWith(".mp4") || lower.endsWith(".3gp") || lower.endsWith(".mkv");
+        if (!isImage && !isVideo) continue;
+
+        const file = await handle.getFile();
+        const url = URL.createObjectURL(file);
+        loaded.push({ name, url, type: isImage ? "image" : "video", file });
+      }
+
+      setItems(loaded);
+      setHasLoaded(true);
+    } catch (e: any) {
+      if (e.name !== "AbortError") alert("Could not open folder: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = (item: MediaItem) => {
+    const a = document.createElement("a");
+    a.href = item.url;
+    a.download = item.name;
+    a.click();
+    setSaved((prev) => new Set([...prev, item.name]));
+  };
+
+  const displayed = items.filter((i) => i.type === subTab.replace("s", "") as "image" | "video");
+  const imageCount = items.filter((i) => i.type === "image").length;
+  const videoCount = items.filter((i) => i.type === "video").length;
 
   return (
     <div className="flex flex-col gap-4 pb-4">
@@ -63,77 +70,105 @@ const StatusSaverTab = () => {
         </div>
         <div>
           <h2 className="font-display font-bold text-base text-foreground">WhatsApp Status Saver</h2>
-          <p className="text-xs text-muted-foreground">Step-by-step guide to save statuses</p>
+          <p className="text-xs text-muted-foreground">Open your .Statuses folder to view & save</p>
         </div>
       </div>
 
-      {/* Info banner */}
-      <div className="rounded-xl border border-border bg-muted p-3 flex gap-3 items-start">
-        <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          WhatsApp statuses are saved <strong className="text-foreground">locally on your device</strong> — they don't have a URL. Follow the steps below based on your phone type.
-        </p>
-      </div>
+      {/* Open Folder Button */}
+      <button
+        onClick={handleOpenFolder}
+        disabled={loading}
+        className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center gap-2 active:scale-98 transition-all hover:border-primary/70 hover:bg-primary/10"
+      >
+        {loading ? (
+          <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <FolderOpen className="w-7 h-7 text-primary" />
+        )}
+        <span className="text-sm font-bold text-foreground">
+          {hasLoaded ? "Reload Statuses Folder" : "Open WhatsApp Statuses Folder"}
+        </span>
+        <span className="text-xs text-muted-foreground text-center px-4">
+          Navigate to: <strong>Android → media → com.whatsapp → WhatsApp → Media → .Statuses</strong>
+        </span>
+      </button>
 
-      {/* Device toggle */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
-        <button
-          onClick={() => setDevice("android")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            device === "android" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Smartphone className="w-4 h-4" />
-          Android
-        </button>
-        <button
-          onClick={() => setDevice("ios")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            device === "ios" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Smartphone className="w-4 h-4" />
-          iPhone (iOS)
-        </button>
-      </div>
-
-      {/* Steps */}
-      <div className="flex flex-col gap-3">
-        {steps.map(({ icon: Icon, title, desc }, i) => (
-          <div key={i} className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
-              {i + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground mb-0.5">{title}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {device === "android" && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex gap-3 items-start">
-          <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-foreground mb-0.5">Tip: Use a dedicated app</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Apps like <strong className="text-foreground">Status Saver for WhatsApp</strong> on the Play Store can do this automatically — they read from the .Statuses folder and let you save with one tap.
-            </p>
-          </div>
+      {hasLoaded && items.length === 0 && (
+        <div className="rounded-xl bg-muted border border-border p-4 text-center">
+          <p className="text-sm text-muted-foreground">No statuses found in that folder.</p>
+          <p className="text-xs text-muted-foreground mt-1">Make sure you've viewed the statuses in WhatsApp first.</p>
         </div>
       )}
 
-      {device === "ios" && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex gap-3 items-start">
-          <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-foreground mb-0.5">Tip: Use Documents app</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              The <strong className="text-foreground">Documents by Readdle</strong> app can sometimes browse WhatsApp's shared storage on iOS, though access depends on your iOS version.
-            </p>
+      {items.length > 0 && (
+        <>
+          {/* Sub-tabs */}
+          <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
+            <button
+              onClick={() => setSubTab("images")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                subTab === "images" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Image className="w-4 h-4" /> Images
+              <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">{imageCount}</span>
+            </button>
+            <button
+              onClick={() => setSubTab("videos")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                subTab === "videos" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Video className="w-4 h-4" /> Videos
+              <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">{videoCount}</span>
+            </button>
           </div>
-        </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-2 gap-2">
+            {displayed.map((item) => {
+              const isSaved = saved.has(item.name);
+              return (
+                <div key={item.name} className="relative rounded-xl overflow-hidden bg-secondary aspect-square border border-border group">
+                  {item.type === "image" ? (
+                    <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <video src={item.url} className="w-full h-full object-cover" muted playsInline />
+                  )}
+
+                  {/* Video indicator */}
+                  {item.type === "video" && (
+                    <div className="absolute top-2 left-2 bg-background/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-mono text-foreground flex items-center gap-1">
+                      <Video className="w-3 h-3" /> Video
+                    </div>
+                  )}
+
+                  {/* Saved badge */}
+                  {isSaved && (
+                    <div className="absolute top-2 right-2 bg-success rounded-full p-1">
+                      <CheckCircle className="w-3.5 h-3.5 text-success-foreground" />
+                    </div>
+                  )}
+
+                  {/* Download strip */}
+                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-2 py-2 bg-gradient-to-t from-background/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleDownload(item)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
+                        isSaved
+                          ? "bg-success text-success-foreground"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {isSaved ? "Saved" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
