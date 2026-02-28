@@ -1,47 +1,61 @@
 import { useState } from "react";
-import { Download, Share2, Image, Video, MessageCircle, AlertCircle, ExternalLink, Clipboard, X } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+import { Smartphone, FolderOpen, Image, Video, MessageCircle, Info, ChevronRight } from "lucide-react";
 
-type SubTab = "guide" | "paste";
+type Device = "android" | "ios";
 
-const STEPS = [
-  { step: "1", text: "Open WhatsApp and view the status you want to save" },
-  { step: "2", text: "On Android: go to File Manager → WhatsApp → .Statuses folder" },
-  { step: "3", text: "Copy the direct file link or use a file manager app to share" },
-  { step: "4", text: "Paste the status URL below to download it here" },
+const ANDROID_STEPS = [
+  {
+    icon: MessageCircle,
+    title: "View the Status",
+    desc: "Open WhatsApp and watch the status you want to save (must be viewed first).",
+  },
+  {
+    icon: FolderOpen,
+    title: "Open File Manager",
+    desc: 'Go to your phone\'s File Manager app and enable "Show Hidden Files".',
+  },
+  {
+    icon: FolderOpen,
+    title: "Navigate to WhatsApp folder",
+    desc: "Internal Storage → Android → media → com.whatsapp → WhatsApp → Media → .Statuses",
+  },
+  {
+    icon: Image,
+    title: "Copy the file",
+    desc: "Long-press the image or video, then copy or move it to your Gallery / Downloads folder.",
+  },
+];
+
+const IOS_STEPS = [
+  {
+    icon: MessageCircle,
+    title: "View the Status",
+    desc: "Open WhatsApp and watch the status you want to save.",
+  },
+  {
+    icon: Smartphone,
+    title: "Screen Record (Videos)",
+    desc: 'Swipe to Control Center, tap the Record button, then play the status. Stop recording when done.',
+  },
+  {
+    icon: Image,
+    title: "Screenshot (Images)",
+    desc: "Take a screenshot while the image status is displayed on screen.",
+  },
+  {
+    icon: Info,
+    title: "Note",
+    desc: "iOS does not allow access to WhatsApp's local storage. Screen recording and screenshots are the only native options.",
+  },
 ];
 
 const StatusSaverTab = () => {
-  const [subTab, setSubTab] = useState<SubTab>("guide");
-  const [url, setUrl] = useState("");
-  const [mediaType, setMediaType] = useState<"image" | "video">("image");
-  const [saved, setSaved] = useState<{ url: string; type: string; time: string }[]>([]);
+  const [device, setDevice] = useState<Device>("android");
 
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      setUrl(text);
-    } catch {
-      toast({ title: "Paste manually", description: "Allow clipboard access or paste the URL manually." });
-    }
-  };
-
-  const handleSave = () => {
-    if (!url.trim()) {
-      toast({ title: "Enter a URL", description: "Paste the WhatsApp status URL first.", variant: "destructive" });
-      return;
-    }
-    // Open URL directly for download
-    window.open(url.trim(), "_blank", "noopener,noreferrer");
-    setSaved((prev) => [{ url: url.trim(), type: mediaType, time: new Date().toLocaleTimeString() }, ...prev]);
-    toast({ title: "Opening status…", description: "Long-press the media to save it to your device." });
-    setUrl("");
-  };
+  const steps = device === "android" ? ANDROID_STEPS : IOS_STEPS;
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      <Toaster />
       {/* Header */}
       <div className="flex items-center gap-3 pt-2">
         <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
@@ -49,138 +63,76 @@ const StatusSaverTab = () => {
         </div>
         <div>
           <h2 className="font-display font-bold text-base text-foreground">WhatsApp Status Saver</h2>
-          <p className="text-xs text-muted-foreground">Save statuses before they disappear</p>
+          <p className="text-xs text-muted-foreground">Step-by-step guide to save statuses</p>
         </div>
       </div>
 
-      {/* Sub-tabs */}
+      {/* Info banner */}
+      <div className="rounded-xl border border-border bg-muted p-3 flex gap-3 items-start">
+        <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          WhatsApp statuses are saved <strong className="text-foreground">locally on your device</strong> — they don't have a URL. Follow the steps below based on your phone type.
+        </p>
+      </div>
+
+      {/* Device toggle */}
       <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
         <button
-          onClick={() => setSubTab("guide")}
+          onClick={() => setDevice("android")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            subTab === "guide" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+            device === "android" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <AlertCircle className="w-4 h-4" />
-          How It Works
+          <Smartphone className="w-4 h-4" />
+          Android
         </button>
         <button
-          onClick={() => setSubTab("paste")}
+          onClick={() => setDevice("ios")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            subTab === "paste" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+            device === "ios" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Download className="w-4 h-4" />
-          Save Status
+          <Smartphone className="w-4 h-4" />
+          iPhone (iOS)
         </button>
       </div>
 
-      {subTab === "guide" && (
-        <div className="flex flex-col gap-3">
-          {/* Info banner */}
-          <div className="rounded-xl border border-border bg-muted p-3 flex gap-3 items-start">
-            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+      {/* Steps */}
+      <div className="flex flex-col gap-3">
+        {steps.map(({ icon: Icon, title, desc }, i) => (
+          <div key={i} className="flex items-start gap-3 rounded-xl bg-card border border-border p-4">
+            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+              {i + 1}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground mb-0.5">{title}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {device === "android" && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex gap-3 items-start">
+          <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-foreground mb-0.5">Tip: Use a dedicated app</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              WhatsApp statuses are stored on your device. Web browsers cannot access your phone's local files directly.
-              Follow the steps below to save a status.
+              Apps like <strong className="text-foreground">Status Saver for WhatsApp</strong> on the Play Store can do this automatically — they read from the .Statuses folder and let you save with one tap.
             </p>
           </div>
-
-          {/* Steps */}
-          {STEPS.map(({ step, text }) => (
-            <div key={step} className="flex items-start gap-3 rounded-xl bg-card border border-border p-3">
-              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
-                {step}
-              </div>
-              <p className="text-sm text-foreground leading-snug mt-0.5">{text}</p>
-            </div>
-          ))}
-
-          <button
-            onClick={() => setSubTab("paste")}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold text-sm"
-          >
-            I have the URL — Save Now →
-          </button>
         </div>
       )}
 
-      {subTab === "paste" && (
-        <div className="flex flex-col gap-4">
-          {/* Media type toggle */}
-          <div className="flex gap-2 p-1 bg-secondary rounded-xl">
-            <button
-              onClick={() => setMediaType("image")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-                mediaType === "image" ? "bg-background text-foreground shadow-card" : "text-muted-foreground"
-              }`}
-            >
-              <Image className="w-4 h-4" /> Image
-            </button>
-            <button
-              onClick={() => setMediaType("video")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-                mediaType === "video" ? "bg-background text-foreground shadow-card" : "text-muted-foreground"
-              }`}
-            >
-              <Video className="w-4 h-4" /> Video
-            </button>
+      {device === "ios" && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex gap-3 items-start">
+          <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-foreground mb-0.5">Tip: Use Documents app</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              The <strong className="text-foreground">Documents by Readdle</strong> app can sometimes browse WhatsApp's shared storage on iOS, though access depends on your iOS version.
+            </p>
           </div>
-
-          {/* URL Input */}
-          <div className="flex items-center rounded-2xl border border-border bg-muted overflow-hidden focus-within:border-primary focus-within:shadow-glow transition-all">
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="Paste WhatsApp status URL…"
-              className="flex-1 bg-transparent pl-4 pr-2 py-4 text-sm text-foreground placeholder:text-muted-foreground outline-none"
-            />
-            {url ? (
-              <button onClick={() => setUrl("")} className="p-2 text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={handlePaste}
-                className="flex items-center gap-1.5 mr-2 px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-xs font-semibold border border-border"
-              >
-                <Clipboard className="w-3.5 h-3.5" /> Paste
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={handleSave}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-glow"
-          >
-            <Download className="w-5 h-5" />
-            Save to Device
-          </button>
-
-          {/* Saved history */}
-          {saved.length > 0 && (
-            <div className="flex flex-col gap-2 mt-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Saved This Session</p>
-              {saved.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl bg-card border border-border p-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    {item.type === "video" ? <Video className="w-4 h-4 text-primary" /> : <Image className="w-4 h-4 text-primary" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground truncate">{item.url}</p>
-                    <p className="text-xs text-muted-foreground">{item.time}</p>
-                  </div>
-                  <button
-                    onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
-                    className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
