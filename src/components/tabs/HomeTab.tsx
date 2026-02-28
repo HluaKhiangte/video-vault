@@ -101,14 +101,8 @@ const HomeTab = () => {
     // Save URL for share sheet
     setShareUrl(target.url);
 
-    // Trigger download via anchor tag
-    const a = document.createElement("a");
-    a.href = target.url;
-    a.download = videoInfo?.title || "video";
-    a.target = "_blank";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Trigger direct download — open in new tab so browser handles it
+    window.open(target.url, "_blank", "noopener,noreferrer");
 
     // Simulate progress UI
     setDownloadState("downloading");
