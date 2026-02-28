@@ -1,36 +1,47 @@
 import { useState } from "react";
-import { Download, Share2, Image, Video, MessageCircle } from "lucide-react";
+import { Download, Share2, Image, Video, MessageCircle, AlertCircle, ExternalLink, Clipboard, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
-const MOCK_IMAGES = [
-  { id: 1, url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80", time: "10:32 AM" },
-  { id: 2, url: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&q=80", time: "9:14 AM" },
-  { id: 3, url: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&q=80", time: "Yesterday" },
-  { id: 4, url: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&q=80", time: "Yesterday" },
-  { id: 5, url: "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=400&q=80", time: "Mon" },
-  { id: 6, url: "https://images.unsplash.com/photo-1490750967868-88df5691cc10?w=400&q=80", time: "Mon" },
+type SubTab = "guide" | "paste";
+
+const STEPS = [
+  { step: "1", text: "Open WhatsApp and view the status you want to save" },
+  { step: "2", text: "On Android: go to File Manager → WhatsApp → .Statuses folder" },
+  { step: "3", text: "Copy the direct file link or use a file manager app to share" },
+  { step: "4", text: "Paste the status URL below to download it here" },
 ];
-
-const MOCK_VIDEOS = [
-  { id: 1, url: "https://images.unsplash.com/photo-1574169208507-84376144848b?w=400&q=80", duration: "0:28", time: "11:05 AM" },
-  { id: 2, url: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80", duration: "1:14", time: "Yesterday" },
-  { id: 3, url: "https://images.unsplash.com/photo-1551817958-d9d86fb29431?w=400&q=80", duration: "0:47", time: "Mon" },
-  { id: 4, url: "https://images.unsplash.com/photo-1560169897-fc0cdbdfa4d5?w=400&q=80", duration: "2:03", time: "Sun" },
-];
-
-type SubTab = "images" | "videos";
 
 const StatusSaverTab = () => {
-  const [subTab, setSubTab] = useState<SubTab>("images");
-  const [saved, setSaved] = useState<Set<number>>(new Set());
+  const [subTab, setSubTab] = useState<SubTab>("guide");
+  const [url, setUrl] = useState("");
+  const [mediaType, setMediaType] = useState<"image" | "video">("image");
+  const [saved, setSaved] = useState<{ url: string; type: string; time: string }[]>([]);
 
-  const handleSave = (id: number) => {
-    setSaved((prev) => new Set([...prev, id]));
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setUrl(text);
+    } catch {
+      toast({ title: "Paste manually", description: "Allow clipboard access or paste the URL manually." });
+    }
   };
 
-  const items = subTab === "images" ? MOCK_IMAGES : MOCK_VIDEOS;
+  const handleSave = () => {
+    if (!url.trim()) {
+      toast({ title: "Enter a URL", description: "Paste the WhatsApp status URL first.", variant: "destructive" });
+      return;
+    }
+    // Open URL directly for download
+    window.open(url.trim(), "_blank", "noopener,noreferrer");
+    setSaved((prev) => [{ url: url.trim(), type: mediaType, time: new Date().toLocaleTimeString() }, ...prev]);
+    toast({ title: "Opening status…", description: "Long-press the media to save it to your device." });
+    setUrl("");
+  };
 
   return (
     <div className="flex flex-col gap-4 pb-4">
+      <Toaster />
       {/* Header */}
       <div className="flex items-center gap-3 pt-2">
         <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
@@ -42,100 +53,136 @@ const StatusSaverTab = () => {
         </div>
       </div>
 
-      {/* Sub-tabs toggle */}
+      {/* Sub-tabs */}
       <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
         <button
-          onClick={() => setSubTab("images")}
+          onClick={() => setSubTab("guide")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            subTab === "images"
-              ? "bg-background text-foreground shadow-card"
-              : "text-muted-foreground hover:text-foreground"
+            subTab === "guide" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Image className="w-4 h-4" />
-          Images
-          <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">
-            {MOCK_IMAGES.length}
-          </span>
+          <AlertCircle className="w-4 h-4" />
+          How It Works
         </button>
         <button
-          onClick={() => setSubTab("videos")}
+          onClick={() => setSubTab("paste")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            subTab === "videos"
-              ? "bg-background text-foreground shadow-card"
-              : "text-muted-foreground hover:text-foreground"
+            subTab === "paste" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Video className="w-4 h-4" />
-          Videos
-          <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">
-            {MOCK_VIDEOS.length}
-          </span>
+          <Download className="w-4 h-4" />
+          Save Status
         </button>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 gap-2">
-        {items.map((item) => {
-          const isSaved = saved.has(item.id);
-          return (
-            <div key={item.id} className="relative group rounded-xl overflow-hidden bg-secondary aspect-square border border-border">
-              <img src={item.url} alt="" className="w-full h-full object-cover" />
+      {subTab === "guide" && (
+        <div className="flex flex-col gap-3">
+          {/* Info banner */}
+          <div className="rounded-xl border border-border bg-muted p-3 flex gap-3 items-start">
+            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              WhatsApp statuses are stored on your device. Web browsers cannot access your phone's local files directly.
+              Follow the steps below to save a status.
+            </p>
+          </div>
 
-              {/* Overlay on hover */}
-              <div className="absolute inset-0 bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                <button
-                  onClick={() => handleSave(item.id)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-                    isSaved
-                      ? "bg-success text-success-foreground"
-                      : "bg-primary text-primary-foreground"
-                  }`}
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-                <button className="w-10 h-10 rounded-full bg-secondary/90 text-foreground flex items-center justify-center shadow-lg active:scale-90">
-                  <Share2 className="w-4 h-4" />
-                </button>
+          {/* Steps */}
+          {STEPS.map(({ step, text }) => (
+            <div key={step} className="flex items-start gap-3 rounded-xl bg-card border border-border p-3">
+              <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+                {step}
               </div>
-
-              {/* Always-visible action strip at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5 bg-gradient-to-t from-background/90 to-transparent">
-                <span className="text-xs text-foreground/70">
-                  {"duration" in item ? (item as typeof MOCK_VIDEOS[0]).duration : item.time}
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => handleSave(item.id)}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                      isSaved ? "text-success" : "text-foreground/80 hover:text-primary"
-                    }`}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
-                  <button className="w-6 h-6 rounded-full flex items-center justify-center text-foreground/80 hover:text-primary">
-                    <Share2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Video play indicator */}
-              {"duration" in item && (
-                <div className="absolute top-2 left-2 bg-background/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-mono text-foreground">
-                  ▶ {(item as typeof MOCK_VIDEOS[0]).duration}
-                </div>
-              )}
-
-              {/* Saved badge */}
-              {isSaved && (
-                <div className="absolute top-2 right-2 bg-success rounded-full px-2 py-0.5 text-xs text-success-foreground font-semibold">
-                  Saved
-                </div>
-              )}
+              <p className="text-sm text-foreground leading-snug mt-0.5">{text}</p>
             </div>
-          );
-        })}
-      </div>
+          ))}
+
+          <button
+            onClick={() => setSubTab("paste")}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold text-sm"
+          >
+            I have the URL — Save Now →
+          </button>
+        </div>
+      )}
+
+      {subTab === "paste" && (
+        <div className="flex flex-col gap-4">
+          {/* Media type toggle */}
+          <div className="flex gap-2 p-1 bg-secondary rounded-xl">
+            <button
+              onClick={() => setMediaType("image")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+                mediaType === "image" ? "bg-background text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              <Image className="w-4 h-4" /> Image
+            </button>
+            <button
+              onClick={() => setMediaType("video")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+                mediaType === "video" ? "bg-background text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              <Video className="w-4 h-4" /> Video
+            </button>
+          </div>
+
+          {/* URL Input */}
+          <div className="flex items-center rounded-2xl border border-border bg-muted overflow-hidden focus-within:border-primary focus-within:shadow-glow transition-all">
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Paste WhatsApp status URL…"
+              className="flex-1 bg-transparent pl-4 pr-2 py-4 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            />
+            {url ? (
+              <button onClick={() => setUrl("")} className="p-2 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={handlePaste}
+                className="flex items-center gap-1.5 mr-2 px-3 py-2 rounded-xl bg-secondary text-secondary-foreground text-xs font-semibold border border-border"
+              >
+                <Clipboard className="w-3.5 h-3.5" /> Paste
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleSave}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-glow"
+          >
+            <Download className="w-5 h-5" />
+            Save to Device
+          </button>
+
+          {/* Saved history */}
+          {saved.length > 0 && (
+            <div className="flex flex-col gap-2 mt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Saved This Session</p>
+              {saved.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-xl bg-card border border-border p-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    {item.type === "video" ? <Video className="w-4 h-4 text-primary" /> : <Image className="w-4 h-4 text-primary" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground truncate">{item.url}</p>
+                    <p className="text-xs text-muted-foreground">{item.time}</p>
+                  </div>
+                  <button
+                    onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
+                    className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
