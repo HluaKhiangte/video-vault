@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Clipboard, Download, Link2, X } from "lucide-react";
+import { Clipboard, Download, Link2, X, Heart, Play, TrendingUp, Music2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VideoPreview from "@/components/VideoPreview";
 import DownloadProgress from "@/components/DownloadProgress";
@@ -28,6 +28,82 @@ const PLATFORMS = [
   { id: "twitter", label: "Twitter", color: "#1DA1F2", abbr: "X", appUrl: "twitter://", webUrl: "https://twitter.com/" },
   { id: "tiktok", label: "TikTok", color: "#010101", abbr: "TT", appUrl: "snssdk1128://", webUrl: "https://tiktok.com/" },
 ];
+
+const TRENDING_SONGS = [
+  { id: 1, title: "Espresso", artist: "Sabrina Carpenter", likes: "4.2M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/eVli-tstM5E/hqdefault.jpg", url: "https://youtube.com/watch?v=eVli-tstM5E" },
+  { id: 2, title: "Die With A Smile", artist: "Lady Gaga & Bruno Mars", likes: "3.8M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/kPa7bsKwL-c/hqdefault.jpg", url: "https://youtube.com/watch?v=kPa7bsKwL-c" },
+  { id: 3, title: "APT.", artist: "ROSÉ & Bruno Mars", likes: "5.1M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/ekr2nIex040/hqdefault.jpg", url: "https://youtube.com/watch?v=ekr2nIex040" },
+  { id: 4, title: "Luther", artist: "Kendrick Lamar & SZA", likes: "2.9M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/FX3OgO6dLi0/hqdefault.jpg", url: "https://youtube.com/watch?v=FX3OgO6dLi0" },
+  { id: 5, title: "Timeless", artist: "The Weeknd & Playboi Carti", likes: "3.3M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/b5e2gNKXFuE/hqdefault.jpg", url: "https://youtube.com/watch?v=b5e2gNKXFuE" },
+  { id: 6, title: "Birds of a Feather", artist: "Billie Eilish", likes: "6.7M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/zex3C0gIOK0/hqdefault.jpg", url: "https://youtube.com/watch?v=zex3C0gIOK0" },
+];
+
+const TrendingSongsFeed = () => {
+  const [liked, setLiked] = useState<Set<number>>(new Set());
+
+  const toggleLike = (id: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setLiked((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 text-primary" />
+        <p className="text-xs font-bold uppercase tracking-wider text-foreground">Trending Songs</p>
+        <span className="ml-auto text-xs text-muted-foreground">This week</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {TRENDING_SONGS.map((song, idx) => (
+          <a
+            key={song.id}
+            href={song.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-2.5 rounded-2xl bg-secondary border border-border hover:border-primary/30 hover:bg-primary/5 transition-all active:scale-98 group"
+          >
+            {/* Rank */}
+            <span className="w-5 text-xs font-bold text-muted-foreground text-center shrink-0">{idx + 1}</span>
+            {/* Thumbnail */}
+            <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-muted">
+              <img
+                src={song.thumbnail}
+                alt={song.title}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-background/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Play className="w-5 h-5 text-white fill-white drop-shadow" />
+              </div>
+            </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{song.title}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Music2 className="w-3 h-3 text-muted-foreground shrink-0" />
+                <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+              </div>
+            </div>
+            {/* Likes */}
+            <button
+              onClick={(e) => toggleLike(song.id, e)}
+              className="flex flex-col items-center gap-0.5 px-2 shrink-0"
+            >
+              <Heart
+                className={`w-4 h-4 transition-colors ${liked.has(song.id) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
+              />
+              <span className="text-xs text-muted-foreground">{song.likes}</span>
+            </button>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const HomeTab = () => {
   const [url, setUrl] = useState("");
@@ -216,6 +292,9 @@ const HomeTab = () => {
           ))}
         </div>
       </div>
+
+      {/* Trending Songs Feed */}
+      <TrendingSongsFeed />
 
       {/* Video Preview */}
       {videoInfo && (
