@@ -38,7 +38,7 @@ const TRENDING_SONGS = [
   { id: 6, title: "Birds of a Feather", artist: "Billie Eilish", likes: "6.7M", platform: "YouTube", thumbnail: "https://i.ytimg.com/vi/zex3C0gIOK0/hqdefault.jpg", url: "https://youtube.com/watch?v=zex3C0gIOK0" },
 ];
 
-const TrendingSongsFeed = () => {
+const TrendingSongsFeed = ({ onDownload }: { onDownload: (url: string) => void }) => {
   const [liked, setLiked] = useState<Set<number>>(new Set());
 
   const toggleLike = (id: number, e: React.MouseEvent) => {
@@ -88,16 +88,25 @@ const TrendingSongsFeed = () => {
                 <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
               </div>
             </div>
-            {/* Likes */}
-            <button
-              onClick={(e) => toggleLike(song.id, e)}
-              className="flex flex-col items-center gap-0.5 px-2 shrink-0"
-            >
-              <Heart
-                className={`w-4 h-4 transition-colors ${liked.has(song.id) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
-              />
-              <span className="text-xs text-muted-foreground">{song.likes}</span>
-            </button>
+            {/* Actions */}
+            <div className="flex flex-col items-center gap-1.5 shrink-0">
+              <button
+                onClick={(e) => toggleLike(song.id, e)}
+                className="flex flex-col items-center gap-0.5 px-1"
+              >
+                <Heart
+                  className={`w-4 h-4 transition-colors ${liked.has(song.id) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
+                />
+                <span className="text-xs text-muted-foreground">{song.likes}</span>
+              </button>
+              <button
+                onClick={(e) => { e.preventDefault(); onDownload(song.url); }}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Download className="w-3 h-3" />
+                DL
+              </button>
+            </div>
           </a>
         ))}
       </div>
@@ -294,7 +303,33 @@ const HomeTab = () => {
       </div>
 
       {/* Trending Songs Feed */}
-      <TrendingSongsFeed />
+      <TrendingSongsFeed onDownload={(songUrl) => {
+        setUrl(songUrl);
+        // scroll to top
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        // slight delay to let state settle then fetch
+        setTimeout(async () => {
+          setDownloadState("fetching");
+          setProgress(0);
+          setVideoInfo(null);
+          setMedias([]);
+          try {
+            const { data, error } = await supabase.functions.invoke("video-download", { body: { url: songUrl } });
+            if (error) throw new Error(error.message);
+            const info = extractDownloadInfo(data);
+            if (!info) throw new Error("Could not parse video info");
+            const videoMedias = info.medias.filter((m: any) => m.type === "video" || (!m.type && m.url));
+            const audioMedias = info.medias.filter((m: any) => m.type === "audio");
+            setMedias([...videoMedias, ...audioMedias]);
+            setVideoInfo({ title: info.title, thumbnail: info.thumbnail, duration: info.duration, platform: info.platform, resolution: videoMedias[0]?.quality || videoMedias[0]?.resolution || "Best", fileSize: videoMedias[0]?.size ? `${Math.round(videoMedias[0].size / 1024 / 1024)} MB` : "—" });
+            setDownloadState("idle");
+          } catch (err: any) {
+            setDownloadState("error");
+            toast({ title: "Failed to fetch video", description: err.message, variant: "destructive" });
+            setDownloadState("idle");
+          }
+        }, 100);
+      }} />
 
       {/* Video Preview */}
       {videoInfo && (
