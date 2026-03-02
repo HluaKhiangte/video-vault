@@ -13,66 +13,8 @@ interface DownloadedFile {
   date: string;
 }
 
-const MOCK_DOWNLOADS: DownloadedFile[] = [
-  {
-    id: 1,
-    title: "Amazing Sunset Timelapse - 4K Ultra HD",
-    platform: "YouTube",
-    platformColor: "#FF0000",
-    size: "142 MB",
-    resolution: "1080p",
-    thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&q=80",
-    type: "video",
-    date: "Just now",
-  },
-  {
-    id: 2,
-    title: "Lo-fi Hip Hop Mix - Beats to Study/Relax",
-    platform: "YouTube",
-    platformColor: "#FF0000",
-    size: "38 MB",
-    resolution: "Audio",
-    thumbnail: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=200&q=80",
-    type: "audio",
-    date: "2 min ago",
-  },
-  {
-    id: 3,
-    title: "Street Photography in Tokyo 🗼",
-    platform: "Instagram",
-    platformColor: "#E1306C",
-    size: "24 MB",
-    resolution: "1080p",
-    thumbnail: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=200&q=80",
-    type: "video",
-    date: "14 min ago",
-  },
-  {
-    id: 4,
-    title: "How To Make Perfect Ramen at Home",
-    platform: "TikTok",
-    platformColor: "#010101",
-    size: "18 MB",
-    resolution: "720p",
-    thumbnail: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&q=80",
-    type: "video",
-    date: "1 hr ago",
-  },
-  {
-    id: 5,
-    title: "Viral Dance Trend #shorts",
-    platform: "Twitter",
-    platformColor: "#1DA1F2",
-    size: "11 MB",
-    resolution: "720p",
-    thumbnail: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=200&q=80",
-    type: "video",
-    date: "Yesterday",
-  },
-];
-
 const DownloadsTab = () => {
-  const [files, setFiles] = useState<DownloadedFile[]>(MOCK_DOWNLOADS);
+  const [files, setFiles] = useState<DownloadedFile[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const handleDelete = (id: number) => {
