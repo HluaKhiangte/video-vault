@@ -1,21 +1,36 @@
-import { useState, useRef } from "react";
-import { Download, Image, Video, MessageCircle, FolderOpen, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, Image, Video, MessageCircle, FolderOpen, CheckCircle, Trash2 } from "lucide-react";
 
-type MediaItem = {
+type SavedStatus = {
   name: string;
-  url: string;
+  dataUrl: string;
   type: "image" | "video";
-  file: File;
+  savedAt: string;
 };
 
 type SubTab = "images" | "videos";
 
+const STORAGE_KEY = "wa_saved_statuses";
+
+const loadSaved = (): SavedStatus[] => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
 const StatusSaverTab = () => {
-  const [items, setItems] = useState<MediaItem[]>([]);
   const [subTab, setSubTab] = useState<SubTab>("images");
-  const [saved, setSaved] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [previews, setPreviews] = useState<SavedStatus[]>([]);
+  const [saved, setSaved] = useState<SavedStatus[]>(loadSaved());
+
+  // Persist saved to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  }, [saved]);
 
   const handleOpenFolder = async () => {
     if (!("showDirectoryPicker" in window)) {
@@ -26,7 +41,7 @@ const StatusSaverTab = () => {
     try {
       // @ts-ignore
       const dirHandle = await window.showDirectoryPicker({ mode: "read" });
-      const loaded: MediaItem[] = [];
+      const loaded: SavedStatus[] = [];
 
       for await (const [name, handle] of dirHandle.entries()) {
         if (handle.kind !== "file") continue;
@@ -36,11 +51,16 @@ const StatusSaverTab = () => {
         if (!isImage && !isVideo) continue;
 
         const file = await handle.getFile();
-        const url = URL.createObjectURL(file);
-        loaded.push({ name, url, type: isImage ? "image" : "video", file });
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        loaded.push({ name, dataUrl, type: isImage ? "image" : "video", savedAt: new Date().toISOString() });
       }
 
-      setItems(loaded);
+      setPreviews(loaded);
       setHasLoaded(true);
     } catch (e: any) {
       if (e.name !== "AbortError") alert("Could not open folder: " + e.message);
@@ -49,24 +69,39 @@ const StatusSaverTab = () => {
     }
   };
 
-  const handleDownload = (item: MediaItem) => {
+  const handleSave = (item: SavedStatus) => {
+    // Download the file
     const a = document.createElement("a");
-    a.href = item.url;
+    a.href = item.dataUrl;
     a.download = item.name;
     a.click();
-    setSaved((prev) => new Set([...prev, item.name]));
+
+    // Add to saved collection if not already there
+    setSaved((prev) => {
+      if (prev.find((s) => s.name === item.name)) return prev;
+      return [{ ...item, savedAt: new Date().toISOString() }, ...prev];
+    });
   };
 
-  const displayed = items.filter((i) => i.type === subTab.replace("s", "") as "image" | "video");
-  const imageCount = items.filter((i) => i.type === "image").length;
-  const videoCount = items.filter((i) => i.type === "video").length;
+  const handleRemoveSaved = (name: string) => {
+    setSaved((prev) => prev.filter((s) => s.name !== name));
+  };
+
+  const isSaved = (name: string) => saved.some((s) => s.name === name);
+
+  const displayedPreviews = previews.filter((i) => i.type === (subTab === "images" ? "image" : "video"));
+  const displayedSaved = saved.filter((i) => i.type === (subTab === "images" ? "image" : "video"));
+  const imageCount = previews.filter((i) => i.type === "image").length;
+  const videoCount = previews.filter((i) => i.type === "video").length;
+  const savedImageCount = saved.filter((i) => i.type === "image").length;
+  const savedVideoCount = saved.filter((i) => i.type === "video").length;
 
   return (
     <div className="flex flex-col gap-4 pb-4">
       {/* Header */}
       <div className="flex items-center gap-3 pt-2">
         <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
-          <MessageCircle className="w-5 h-5 text-background fill-background" />
+          <MessageCircle className="w-5 h-5 text-white fill-white" />
         </div>
         <div>
           <h2 className="font-display font-bold text-base text-foreground">WhatsApp Status Saver</h2>
@@ -93,82 +128,132 @@ const StatusSaverTab = () => {
         </span>
       </button>
 
-      {hasLoaded && items.length === 0 && (
+      {hasLoaded && previews.length === 0 && (
         <div className="rounded-xl bg-muted border border-border p-4 text-center">
           <p className="text-sm text-muted-foreground">No statuses found in that folder.</p>
           <p className="text-xs text-muted-foreground mt-1">Make sure you've viewed the statuses in WhatsApp first.</p>
         </div>
       )}
 
-      {items.length > 0 && (
+      {/* Sub-tabs */}
+      {(previews.length > 0 || saved.length > 0) && (
+        <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
+          <button
+            onClick={() => setSubTab("images")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              subTab === "images" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Image className="w-4 h-4" /> Images
+            <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">
+              {hasLoaded ? imageCount : savedImageCount}
+            </span>
+          </button>
+          <button
+            onClick={() => setSubTab("videos")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              subTab === "videos" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Video className="w-4 h-4" /> Videos
+            <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">
+              {hasLoaded ? videoCount : savedVideoCount}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Live previews from folder */}
+      {hasLoaded && displayedPreviews.length > 0 && (
         <>
-          {/* Sub-tabs */}
-          <div className="flex gap-1 p-1 bg-secondary rounded-2xl">
-            <button
-              onClick={() => setSubTab("images")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                subTab === "images" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Image className="w-4 h-4" /> Images
-              <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">{imageCount}</span>
-            </button>
-            <button
-              onClick={() => setSubTab("videos")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                subTab === "videos" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Video className="w-4 h-4" /> Videos
-              <span className="text-xs rounded-full px-1.5 py-0.5 bg-primary/20 text-primary font-bold">{videoCount}</span>
-            </button>
-          </div>
-
-          {/* Grid */}
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Viewed Statuses</p>
           <div className="grid grid-cols-2 gap-2">
-            {displayed.map((item) => {
-              const isSaved = saved.has(item.name);
-              return (
-                <div key={item.name} className="relative rounded-xl overflow-hidden bg-secondary aspect-square border border-border group">
-                  {item.type === "image" ? (
-                    <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={item.url} className="w-full h-full object-cover" muted playsInline />
-                  )}
-
-                  {/* Video indicator */}
-                  {item.type === "video" && (
-                    <div className="absolute top-2 left-2 bg-background/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-mono text-foreground flex items-center gap-1">
-                      <Video className="w-3 h-3" /> Video
-                    </div>
-                  )}
-
-                  {/* Saved badge */}
-                  {isSaved && (
-                    <div className="absolute top-2 right-2 bg-success rounded-full p-1">
-                      <CheckCircle className="w-3.5 h-3.5 text-success-foreground" />
-                    </div>
-                  )}
-
-                  {/* Download strip - always visible on mobile */}
-                  <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-2 py-2 bg-gradient-to-t from-background/90 to-transparent">
-                    <button
-                      onClick={() => handleDownload(item)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
-                        isSaved
-                          ? "bg-success text-success-foreground"
-                          : "bg-primary text-primary-foreground"
-                      }`}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      {isSaved ? "Saved" : "Save"}
-                    </button>
+            {displayedPreviews.map((item) => (
+              <div key={item.name} className="relative rounded-xl overflow-hidden bg-secondary aspect-square border border-border">
+                {item.type === "image" ? (
+                  <img src={item.dataUrl} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <video src={item.dataUrl} className="w-full h-full object-cover" muted playsInline controls />
+                )}
+                {item.type === "video" && (
+                  <div className="absolute top-2 left-2 bg-background/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-mono text-foreground flex items-center gap-1">
+                    <Video className="w-3 h-3" /> Video
                   </div>
+                )}
+                {isSaved(item.name) && (
+                  <div className="absolute top-2 right-2 bg-success rounded-full p-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-end px-2 py-2 bg-gradient-to-t from-background/90 to-transparent">
+                  <button
+                    onClick={() => handleSave(item)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
+                      isSaved(item.name)
+                        ? "bg-success text-white"
+                        : "bg-primary text-primary-foreground"
+                    }`}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {isSaved(item.name) ? "Saved" : "Save"}
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </>
+      )}
+
+      {/* Saved statuses from localStorage */}
+      {displayedSaved.length > 0 && (
+        <>
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mt-2">Saved Statuses</p>
+          <div className="grid grid-cols-2 gap-2">
+            {displayedSaved.map((item) => (
+              <div key={item.name} className="relative rounded-xl overflow-hidden bg-secondary aspect-square border border-border">
+                {item.type === "image" ? (
+                  <img src={item.dataUrl} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <video src={item.dataUrl} className="w-full h-full object-cover" muted playsInline controls />
+                )}
+                {item.type === "video" && (
+                  <div className="absolute top-2 left-2 bg-background/70 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-mono text-foreground flex items-center gap-1">
+                    <Video className="w-3 h-3" /> Video
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 bg-success rounded-full p-1">
+                  <CheckCircle className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-2 bg-gradient-to-t from-background/90 to-transparent">
+                  <button
+                    onClick={() => handleRemoveSaved(item.name)}
+                    className="w-7 h-7 rounded-full bg-destructive/80 flex items-center justify-center active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  <button
+                    onClick={() => handleSave(item)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow bg-primary text-primary-foreground transition-all active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Empty saved state */}
+      {!hasLoaded && saved.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+          <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center">
+            <MessageCircle className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">No saved statuses yet</p>
+          <p className="text-xs text-muted-foreground">Open your WhatsApp .Statuses folder to browse and save</p>
+        </div>
       )}
     </div>
   );
