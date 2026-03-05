@@ -256,7 +256,7 @@ const HomeTab = () => {
         </div>
       </div>
 
-      {/* Download Button */}
+      {/* Fetch Button */}
       <Button
         onClick={handleFetch}
         disabled={!url.trim() || isFetching}
@@ -271,7 +271,7 @@ const HomeTab = () => {
         ) : (
           <span className="flex items-center gap-2">
             <Download className="w-5 h-5" />
-            Download Video
+            Fetch Video
           </span>
         )}
       </Button>
@@ -302,12 +302,26 @@ const HomeTab = () => {
         </div>
       </div>
 
+      {/* Video Preview — shown above trending feed after fetch */}
+      {videoInfo && (
+        <VideoPreview
+          info={videoInfo}
+          downloadState={downloadState}
+          onDownload={handleDownload}
+          onReset={handleReset}
+          medias={medias}
+        />
+      )}
+
+      {/* Download Progress */}
+      {(downloadState === "downloading" || downloadState === "done") && (
+        <DownloadProgress progress={Math.min(progress, 100)} state={downloadState} />
+      )}
+
       {/* Trending Songs Feed */}
       <TrendingSongsFeed onDownload={(songUrl) => {
         setUrl(songUrl);
-        // scroll to top
         window.scrollTo({ top: 0, behavior: "smooth" });
-        // slight delay to let state settle then fetch
         setTimeout(async () => {
           setDownloadState("fetching");
           setProgress(0);
@@ -330,22 +344,6 @@ const HomeTab = () => {
           }
         }, 100);
       }} />
-
-      {/* Video Preview */}
-      {videoInfo && (
-        <VideoPreview
-          info={videoInfo}
-          downloadState={downloadState}
-          onDownload={handleDownload}
-          onReset={handleReset}
-          medias={medias}
-        />
-      )}
-
-      {/* Download Progress */}
-      {(downloadState === "downloading" || downloadState === "done") && (
-        <DownloadProgress progress={Math.min(progress, 100)} state={downloadState} />
-      )}
 
       <Toaster />
 
