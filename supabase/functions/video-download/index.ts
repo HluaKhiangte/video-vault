@@ -11,7 +11,39 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, proxyUrl, filename } = await req.json();
+
+    // ── Proxy mode: stream a media file through the edge function ──────────
+    if (proxyUrl) {
+      const upstream = await fetch(proxyUrl, {
+        headers: {
+          // mimic a browser so googlevideo.com / CDN servers accept the request
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+          'Referer': 'https://www.youtube.com/',
+          'Origin': 'https://www.youtube.com',
+        },
+      });
+
+      if (!upstream.ok) {
+        return new Response(JSON.stringify({ error: `Upstream ${upstream.status}` }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+      const safeFilename = (filename || 'download').replace(/[^a-zA-Z0-9._-]/g, '_');
+
+      return new Response(upstream.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': contentType,
+          'Content-Disposition': `attachment; filename="${safeFilename}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // ── Metadata fetch mode ─────────────────────────────────────────────────
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

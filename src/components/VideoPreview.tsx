@@ -24,16 +24,31 @@ const FORMAT_OPTIONS: { id: Format; label: string; icon: React.ElementType; ext:
 const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }: Props) => {
   const [selectedFormat, setSelectedFormat] = useState<Format>("MP4");
 
+  // Detect if a media entry is audio-only
+  const isAudioOnly = (m: any) => {
+    const mimeType = (m.mimeType || m.mime_type || "").toLowerCase();
+    const ext = (m.ext || m.extension || "").toLowerCase();
+    // API sets is_audio:true OR audioQuality present but no video codec OR mime starts with audio
+    return (
+      m.is_audio === true ||
+      m.type === "audio" ||
+      mimeType.startsWith("audio") ||
+      ext === "mp3" ||
+      (m.audioQuality != null && m.audioSampleRate != null &&
+        !(mimeType.includes("video") && m.width && m.height))
+    );
+  };
+
   // Filter medias by selected format
   const filteredMedias = useMemo(() => {
     if (medias.length === 0) return [];
     return medias.filter((m: any) => {
-      const ext = (m.ext || m.extension || m.format || m.quality || "").toLowerCase();
-      const mimeType = (m.mimeType || m.mime_type || m.type || "").toLowerCase();
-      if (selectedFormat === "MP3") return ext.includes("mp3") || mimeType.includes("audio") || m.type === "audio";
-      if (selectedFormat === "WEBM") return ext.includes("webm") || mimeType.includes("webm");
-      // MP4: default — video tracks or unrecognised
-      return !ext.includes("mp3") && !ext.includes("webm") && !mimeType.includes("audio");
+      const ext = (m.ext || m.extension || "").toLowerCase();
+      const mimeType = (m.mimeType || m.mime_type || "").toLowerCase();
+      if (selectedFormat === "MP3") return isAudioOnly(m);
+      if (selectedFormat === "WEBM") return (ext === "webm" || mimeType.includes("webm")) && !isAudioOnly(m);
+      // MP4 — video mp4 only, exclude audio-only and webm
+      return (ext === "mp4" || mimeType.includes("video/mp4")) && !isAudioOnly(m);
     });
   }, [medias, selectedFormat]);
 
