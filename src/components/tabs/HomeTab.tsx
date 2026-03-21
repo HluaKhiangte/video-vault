@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import ShareSheet from "@/components/ShareSheet";
+import { useTrendingSongs } from "@/hooks/use-trending-songs";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Helper to pick the best media URL from the API response
 function extractDownloadInfo(data: any): { title: string; thumbnail: string; duration: string; platform: string; medias: any[] } | null {
