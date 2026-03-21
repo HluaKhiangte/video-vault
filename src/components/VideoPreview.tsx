@@ -17,7 +17,7 @@ type Format = "MP4" | "MP3" | "WEBM";
 
 const FORMAT_OPTIONS: { id: Format; label: string; icon: React.ElementType; ext: string }[] = [
   { id: "MP4",  label: "MP4",  icon: Film,  ext: "mp4"  },
-  { id: "MP3",  label: "MP3",  icon: Music, ext: "mp3"  },
+  { id: "MP3",  label: "M4A / Audio",  icon: Music, ext: "m4a"  },
   { id: "WEBM", label: "WEBM", icon: Video, ext: "webm" },
 ];
 
