@@ -2,48 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { url, proxyUrl, filename } = await req.json();
-
-    // ── Proxy mode: stream a media file through the edge function ──────────
-    if (proxyUrl) {
-      const upstream = await fetch(proxyUrl, {
-        headers: {
-          // mimic a browser so googlevideo.com / CDN servers accept the request
-          'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
-          'Referer': 'https://www.youtube.com/',
-          'Origin': 'https://www.youtube.com',
-        },
-      });
-
-      if (!upstream.ok) {
-        return new Response(JSON.stringify({ error: `Upstream ${upstream.status}` }), {
-          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-      const safeFilename = (filename || 'download').replace(/[^a-zA-Z0-9._-]/g, '_');
-
-      return new Response(upstream.body, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${safeFilename}"`,
-          'Cache-Control': 'no-store',
-        },
-      });
-    }
-
-    // ── Metadata fetch mode ─────────────────────────────────────────────────
+    const { url } = await req.json();
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
