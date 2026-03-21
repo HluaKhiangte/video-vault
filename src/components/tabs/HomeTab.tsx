@@ -187,7 +187,7 @@ const HomeTab = () => {
     }
   };
 
-  const handleDownload = async (selectedRes?: string) => {
+  const handleDownload = (selectedRes?: string) => {
     // Find the media matching selected resolution or pick best
     const target = medias.find((m) =>
       m.quality === selectedRes || m.resolution === selectedRes
@@ -199,8 +199,6 @@ const HomeTab = () => {
     }
 
     setShareUrl(target.url);
-    setDownloadState("downloading");
-    setProgress(0);
 
     // Determine filename extension
     const isAudio = target.is_audio || target.type === "audio" ||
@@ -209,50 +207,30 @@ const HomeTab = () => {
     const safeTitle = (videoInfo?.title || "download").replace(/[^a-zA-Z0-9 _-]/g, "").trim().slice(0, 80);
     const filename = `${safeTitle}.${ext}`;
 
-    // Progress simulation
+    // Direct browser download via anchor — works for all CDN URLs without CORS issues
+    const a = document.createElement("a");
+    a.href = target.url;
+    a.download = filename;
+    a.rel = "noopener noreferrer";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // Show progress UI
+    setDownloadState("downloading");
+    setProgress(0);
     const interval = setInterval(() => {
       setProgress((p) => {
-        if (p >= 90) { clearInterval(interval); return 90; }
-        return p + Math.random() * 6 + 2;
+        if (p >= 100) {
+          clearInterval(interval);
+          setDownloadState("done");
+          setShowShare(true);
+          return 100;
+        }
+        return p + Math.random() * 8 + 2;
       });
     }, 180);
-
-    try {
-      // Proxy through edge function to avoid CORS + force attachment download
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/video-download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": ANON_KEY,
-          "Authorization": `Bearer ${ANON_KEY}`,
-        },
-        body: JSON.stringify({ proxyUrl: target.url, filename }),
-      });
-
-      if (!res.ok) throw new Error(`Download failed (${res.status})`);
-
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
-
-      clearInterval(interval);
-      setProgress(100);
-      setDownloadState("done");
-      setShowShare(true);
-    } catch (err: any) {
-      clearInterval(interval);
-      setDownloadState("error");
-      toast({ title: "Download failed", description: err.message, variant: "destructive" });
-      setDownloadState("idle");
-    }
   };
 
   const handleReset = () => {
