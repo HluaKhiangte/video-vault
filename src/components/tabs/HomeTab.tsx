@@ -188,7 +188,7 @@ const HomeTab = () => {
   };
 
   const handleDownload = (selectedRes?: string) => {
-    // Find the media matching selected resolution or pick best
+    // Find the media matching selected resolution label or pick best
     const target = medias.find((m) =>
       m.quality === selectedRes || m.resolution === selectedRes
     ) || medias[0];
@@ -200,14 +200,30 @@ const HomeTab = () => {
 
     setShareUrl(target.url);
 
-    // Determine filename extension
-    const isAudio = target.is_audio || target.type === "audio" ||
-      (target.mimeType || "").startsWith("audio") || target.ext === "mp3";
-    const ext = isAudio ? "mp3" : (target.ext || target.extension || "mp4");
-    const safeTitle = (videoInfo?.title || "download").replace(/[^a-zA-Z0-9 _-]/g, "").trim().slice(0, 80);
+    // Determine correct file extension from actual container/mime type
+    const mimeType = (target.mimeType || target.mime_type || "").toLowerCase();
+    const hasVideo = target.width && target.height && target.width > 0 && target.height > 0;
+    const isAudioOnly = !hasVideo && (
+      target.type === "audio" ||
+      mimeType.startsWith("audio") ||
+      (target.audioQuality != null && target.audioSampleRate != null)
+    );
+
+    let ext: string;
+    if (isAudioOnly) {
+      // Use m4a for AAC audio (most common from YouTube), webm for opus
+      ext = mimeType.includes("webm") ? "webm" : "m4a";
+    } else {
+      ext = target.ext || target.extension || "mp4";
+    }
+
+    const safeTitle = (videoInfo?.title || "download")
+      .replace(/[^a-zA-Z0-9 _-]/g, "")
+      .trim()
+      .slice(0, 80);
     const filename = `${safeTitle}.${ext}`;
 
-    // Direct browser download via anchor — works for all CDN URLs without CORS issues
+    // Direct browser download via anchor — works for CDN URLs without CORS restriction
     const a = document.createElement("a");
     a.href = target.url;
     a.download = filename;

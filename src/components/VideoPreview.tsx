@@ -17,7 +17,7 @@ type Format = "MP4" | "MP3" | "WEBM";
 
 const FORMAT_OPTIONS: { id: Format; label: string; icon: React.ElementType; ext: string }[] = [
   { id: "MP4",  label: "MP4",  icon: Film,  ext: "mp4"  },
-  { id: "MP3",  label: "MP3",  icon: Music, ext: "mp3"  },
+  { id: "MP3",  label: "M4A / Audio",  icon: Music, ext: "m4a"  },
   { id: "WEBM", label: "WEBM", icon: Video, ext: "webm" },
 ];
 
@@ -25,18 +25,26 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }:
   const [selectedFormat, setSelectedFormat] = useState<Format>("MP4");
 
   // Detect if a media entry is audio-only
+  // A true audio-only stream has NO video dimensions (width/height).
+  // YouTube combined streams (mp4 360p) have is_audio:true but still have width+height — exclude those.
   const isAudioOnly = (m: any) => {
+    const hasVideo = m.width && m.height && m.width > 0 && m.height > 0;
+    if (hasVideo) return false; // combined audio+video — not audio-only
     const mimeType = (m.mimeType || m.mime_type || "").toLowerCase();
     const ext = (m.ext || m.extension || "").toLowerCase();
-    // API sets is_audio:true OR audioQuality present but no video codec OR mime starts with audio
     return (
-      m.is_audio === true ||
       m.type === "audio" ||
       mimeType.startsWith("audio") ||
-      ext === "mp3" ||
-      (m.audioQuality != null && m.audioSampleRate != null &&
-        !(mimeType.includes("video") && m.width && m.height))
+      ext === "mp3" || ext === "m4a" || ext === "aac" ||
+      (m.audioQuality != null && m.audioSampleRate != null)
     );
+  };
+
+  // Label for an audio-only stream — show bitrate or quality tier
+  const audioLabel = (m: any) => {
+    const rate = m.audioSampleRate ? `${Math.round(parseInt(m.audioSampleRate) / 1000)}kHz` : "";
+    const tier = (m.audioQuality || "").replace("AUDIO_QUALITY_", "");
+    return [tier, rate].filter(Boolean).join(" ") || m.quality || "Audio";
   };
 
   // Filter medias by selected format
@@ -55,7 +63,9 @@ const VideoPreview = ({ info, downloadState, onDownload, onReset, medias = [] }:
   const displayMedias = filteredMedias.length > 0 ? filteredMedias : medias;
 
   const resolutionOptions = displayMedias.length > 0
-    ? displayMedias.map((m: any) => m.quality || m.resolution || (m.type === "audio" ? "Audio" : "Best")).filter(Boolean)
+    ? displayMedias.map((m: any) =>
+        isAudioOnly(m) ? audioLabel(m) : (m.quality || m.resolution || "Best")
+      ).filter(Boolean)
     : DEFAULT_RESOLUTIONS;
 
   const [selectedRes, setSelectedRes] = useState(resolutionOptions[0] || "Best");
