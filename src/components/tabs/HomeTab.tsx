@@ -31,9 +31,17 @@ const PLATFORMS = [
   { id: "tiktok", label: "TikTok", color: "#010101", abbr: "TT", appUrl: "snssdk1128://", webUrl: "https://tiktok.com/" },
 ];
 
+const COUNTRIES = [
+  { code: "us", label: "US", flag: "🇺🇸" },
+  { code: "gb", label: "UK", flag: "🇬🇧" },
+  { code: "au", label: "AU", flag: "🇦🇺" },
+  { code: "in", label: "IN", flag: "🇮🇳" },
+];
+
 const TrendingSongsFeed = ({ onDownload }: { onDownload: (url: string) => void }) => {
   const [liked, setLiked] = useState<Set<number>>(new Set());
-  const { songs, loading, error } = useTrendingSongs();
+  const [country, setCountry] = useState("us");
+  const { songs, loading, error } = useTrendingSongs(country);
 
   const toggleLike = (id: number, e: React.MouseEvent) => {
     e.preventDefault();
@@ -49,7 +57,17 @@ const TrendingSongsFeed = ({ onDownload }: { onDownload: (url: string) => void }
       <div className="flex items-center gap-2">
         <TrendingUp className="w-4 h-4 text-primary" />
         <p className="text-xs font-bold uppercase tracking-wider text-foreground">Trending Songs</p>
-        <span className="ml-auto text-xs text-muted-foreground">iTunes Top 10</span>
+        <div className="ml-auto flex items-center gap-1">
+          {COUNTRIES.map((c) => (
+            <button
+              key={c.code}
+              onClick={() => setCountry(c.code)}
+              className={`px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${country === c.code ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-muted"}`}
+            >
+              {c.flag} {c.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && (
