@@ -9,7 +9,9 @@ import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import ShareSheet from "@/components/ShareSheet";
 import { useTrendingSongs } from "@/hooks/use-trending-songs";
+import { useDownloadHistory } from "@/hooks/use-download-history";
 import { Skeleton } from "@/components/ui/skeleton";
+
 
 // Helper to pick the best media URL from the API response
 function extractDownloadInfo(data: any): { title: string; thumbnail: string; duration: string; platform: string; medias: any[] } | null {
@@ -156,6 +158,7 @@ const HomeTab = () => {
   const [shareUrl, setShareUrl] = useState<string>("");
   const [showShare, setShowShare] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { addItem } = useDownloadHistory();
 
   const handlePaste = async () => {
     try {
@@ -251,7 +254,23 @@ const HomeTab = () => {
     a.click();
     a.remove();
 
-    // Show progress UI
+    // Save to download history
+    addItem({
+      title: videoInfo?.title || filename,
+      thumbnail: videoInfo?.thumbnail || "",
+      platform: videoInfo?.platform || "Video",
+      format: ext.toUpperCase(),
+      resolution: isAudioOnly
+        ? (target.audioQuality || "Audio")
+        : (selectedRes || target.quality || target.resolution || "Best"),
+      size: target.size
+        ? `${Math.round(target.size / 1024 / 1024)} MB`
+        : (videoInfo?.fileSize || "—"),
+      type: isAudioOnly ? "audio" : "video",
+      sourceUrl: url,
+    });
+
+
     setDownloadState("downloading");
     setProgress(0);
     const interval = setInterval(() => {
