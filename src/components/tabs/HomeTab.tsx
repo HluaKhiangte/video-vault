@@ -262,7 +262,23 @@ const HomeTab = () => {
     a.click();
     a.remove();
 
-    // Show progress UI
+    // Save to download history
+    addItem({
+      title: videoInfo?.title || filename,
+      thumbnail: videoInfo?.thumbnail || "",
+      platform: videoInfo?.platform || "Video",
+      format: ext.toUpperCase(),
+      resolution: isAudioOnly
+        ? (target.audioQuality || "Audio")
+        : (selectedRes || target.quality || target.resolution || "Best"),
+      size: target.size
+        ? `${Math.round(target.size / 1024 / 1024)} MB`
+        : (videoInfo?.fileSize || "—"),
+      type: isAudioOnly ? "audio" : "video",
+      sourceUrl: url,
+    });
+
+
     setDownloadState("downloading");
     setProgress(0);
     const interval = setInterval(() => {
