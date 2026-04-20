@@ -9,7 +9,17 @@ import { toast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import ShareSheet from "@/components/ShareSheet";
 import { useTrendingSongs } from "@/hooks/use-trending-songs";
+import { useDownloadHistory } from "@/hooks/use-download-history";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const PLATFORM_COLORS: Record<string, string> = {
+  YouTube: "#FF0000",
+  Youtube: "#FF0000",
+  Instagram: "#E1306C",
+  Facebook: "#1877F2",
+  Twitter: "#1DA1F2",
+  TikTok: "#010101",
+};
 
 // Helper to pick the best media URL from the API response
 function extractDownloadInfo(data: any): { title: string; thumbnail: string; duration: string; platform: string; medias: any[] } | null {
