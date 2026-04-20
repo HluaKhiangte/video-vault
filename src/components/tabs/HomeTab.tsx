@@ -166,6 +166,7 @@ const HomeTab = () => {
   const [shareUrl, setShareUrl] = useState<string>("");
   const [showShare, setShowShare] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { addItem } = useDownloadHistory();
 
   const handlePaste = async () => {
     try {
